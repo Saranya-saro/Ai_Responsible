@@ -1,0 +1,197 @@
+
+
+import sklearn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_iris
+import shap
+
+X, y = load_iris(return_X_y=True)
+model = RandomForestClassifier().fit(X, y)
+
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X)
+
+
+shap.summary_plot(shap_values[0], X)
+
+print("The 'Black Box' is now interpretable!")
+
+
+
+
+import pandas as pd
+
+
+data = {
+    'resume_text': ['coder', 'manager', 'coder', 'assistant', 'coder'],
+    'gender': ['male', 'male', 'male', 'female', 'male'],
+    'hired': [1, 1, 1, 0, 1]
+}
+
+df = pd.DataFrame(data)
+
+bias_check = df.groupby('gender')['hired'].mean()
+print("\nBias Check:")
+print(bias_check)
+
+
+
+import numpy as np
+from sklearn.linear_model import LinearRegression
+
+
+X = np.array([1, 2, 3, 4, 5]).reshape(-1, 1)
+y_clean = np.array([2, 4, 6, 8, 10])
+
+
+model_clean = LinearRegression().fit(X, y_clean)
+print("\nClean Data Score:", model_clean.score(X, y_clean))
+
+
+y_noisy = np.array([2, 400, 6, 8, 10])
+model_noisy = LinearRegression().fit(X, y_noisy)
+print("Noisy Data Score:", model_noisy.score(X, y_noisy))
+
+
+
+import pandas as pd
+import numpy as np
+
+data = {
+    'feature1': [1, np.nan, 3],
+    'feature2': ['A', 'B', 'C']
+}
+
+df = pd.DataFrame(data)
+
+df['feature1'] = df['feature1'].fillna(df['feature1'].mean())
+
+print("\nCleaned Dataset:")
+print(df)
+
+
+from transformers import pipeline
+
+
+classifier = pipeline("sentiment-analysis")
+
+result = classifier("I love using Python for AI!")
+
+print("\nSentiment Analysis Result:")
+print(result)
+
+# --------------------------------
+# 1. Data Collection & Preparation
+# --------------------------------
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+# Load dataset
+df = pd.read_csv("loan_applications.csv")
+
+# Check representation of groups (fairness check)
+print("Gender distribution:")
+print(df['gender'].value_counts(normalize=True))
+
+print("\nRace distribution:")
+print(df['race'].value_counts(normalize=True))
+
+# Handle missing values
+df['income'].fillna(df['income'].median(), inplace=True)
+
+# Split dataset with stratification
+train, test = train_test_split(df, test_size=0.2, stratify=df['approved'], random_state=42)
+
+
+# --------------------------------
+# 2. Model Training & Development
+# --------------------------------
+from fairlearn.reductions import ExponentiatedGradient, DemographicParity
+from sklearn.linear_model import LogisticRegression
+
+# Define sensitive feature
+sensitive_features = train['gender']
+
+# Prepare training data
+X_train = train.drop('approved', axis=1)
+y_train = train['approved']
+
+# Train fairness-aware model
+classifier = LogisticRegression(max_iter=1000)
+mitigator = ExponentiatedGradient(classifier, constraints=DemographicParity())
+
+mitigator.fit(X_train, y_train, sensitive_features=sensitive_features)
+
+
+# --------------------------------
+# 3. Model Evaluation & Audit
+# --------------------------------
+from fairlearn.metrics import demographic_parity_difference
+
+# Prepare test data
+X_test = test.drop('approved', axis=1)
+y_test = test['approved']
+
+# Predictions
+y_pred = mitigator.predict(X_test)
+
+# Fairness evaluation
+dp_diff = demographic_parity_difference(
+    y_test,
+    y_pred,
+    sensitive_features=test['gender']
+)
+
+print("\nDemographic Parity Difference:", dp_diff)
+
+
+# --------------------------------
+# 4. Explainability & Interpretation
+# --------------------------------
+import shap
+
+# Create SHAP explainer
+explainer = shap.Explainer(mitigator.predict, X_test)
+
+# Compute SHAP values
+shap_values = explainer(X_test)
+
+# Show feature importance
+shap.summary_plot(shap_values, X_test)
+
+
+# --------------------------------
+# 5. Deployment & Monitoring
+# --------------------------------
+
+# Example monitoring functions (conceptual)
+
+def evaluate_accuracy(model, data):
+    from sklearn.metrics import accuracy_score
+    X = data.drop('approved', axis=1)
+    y = data['approved']
+    preds = model.predict(X)
+    return accuracy_score(y, preds)
+
+
+def check_fairness(model, data):
+    from fairlearn.metrics import demographic_parity_difference
+    X = data.drop('approved', axis=1)
+    y = data['approved']
+    preds = model.predict(X)
+    return demographic_parity_difference(y, preds, sensitive_features=data['gender'])
+
+
+def trigger_alert(message):
+    print("ALERT:", message)
+
+
+def monitor_production_model(current_data, model):
+    
+    accuracy = evaluate_accuracy(model, current_data)
+    if accuracy < 0.90:
+        trigger_alert("Model accuracy dropped. Initiate retraining.")
+
+    fairness = check_fairness(model, current_data)
+    if fairness > 0.1:
+        trigger_alert("Bias detected in production. Review data.")
