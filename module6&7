@@ -1,0 +1,194 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from fairlearn.metrics import MetricFrame, selection_rate_difference
+from fairlearn.preprocessing import CorrelationRemover
+from diffprivlib.models import LogisticRegression as DPLoReg
+import shap
+
+np.random.seed(42)
+n_samples = 1000
+
+gender = np.random.binomial(1, 0.5, n_samples)
+income = np.random.normal(50000, 15000, n_samples)
+
+income = income + (gender * 10000)
+
+loan_approved = (income + np.random.normal(0, 10000, n_samples) > 55000).astype(int)
+
+data = pd.DataFrame({'gender': gender, 'income': income, 'loan_approved': loan_approved})
+X = data[['gender', 'income']]
+y = data['loan_approved']
+sensitive_feature = data['gender'] 
+
+X_train, X_test, y_train, y_test, s_train, s_test = train_test_split(
+    X, y, sensitive_feature, test_size=0.3, random_state=42
+)
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+
+lr = LogisticRegression(solver='liblinear')
+lr.fit(X_train_scaled, y_train)
+preds = lr.predict(X_test_scaled)
+
+print("--- Initial Model (Before Fairness & Privacy) ---")
+print(f"Accuracy: {accuracy_score(y_test, preds):.2f}")
+
+sr_diff = selection_rate_difference(y_test, preds, sensitive_features=s_test)
+print(f"Selection Rate Difference (Bias): {sr_diff:.2f}")
+
+cr = CorrelationRemover(sensitive_feature_ids=['gender'])
+X_train_fair = cr.fit_transform(X_train)
+X_test_fair = cr.transform(X_test)
+
+
+dp_lr = DPLoReg(epsilon=1.0, data_norm=10) 
+dp_lr.fit(X_train_fair, y_train)
+dp_preds = dp_lr.predict(X_test_fair)
+
+print("\n--- Model After Fairness Mitigation & Differential Privacy ---")
+print(f"DP Accuracy: {accuracy_score(y_test, dp_preds):.2f}")
+dp_sr_diff = selection_rate_difference(y_test, dp_preds, sensitive_features=s_test)
+print(f"New Selection Rate Difference: {dp_sr_diff:.2f}")
+
+
+print("\n--- Explainability (SHAP values) ---")
+explainer = shap.LinearExplainer(dp_lr, X_train_fair)
+shap_values = explainer.shap_values(X_test_fair)
+
+shap.summary_plot(shap_values, X_test_fair, feature_names=['gender', 'income'], plot_type="bar")
+
+
+X_test_corrupted = X_test_fair.copy()
+X_test_corrupted[:, 1] = X_test_corrupted[:, 1] + np.random.normal(0, 5, X_test_corrupted.shape[0])
+
+robust_preds = dp_lr.predict(X_test_corrupted)
+print("\n--- Robustness Test ---")
+print(f"Accuracy with corrupted data: {accuracy_score(y_test, robust_preds):.2f}")
+print("The DP model should show similar performance despite noise.")
+
+python
+import math
+import numpy as np
+from collections import Counter
+import re
+import nltk
+from nltk import ngrams
+nltk.download('punkt')
+
+def calculate_perplexity(text, n=2):
+    """Calculates the perplexity of text using a simple n-gram model."""
+    text = re.sub(r'[^\w\s]', '', text.lower()) # Simple preprocessing
+    tokens = nltk.word_tokenize(text)
+    if not tokens: return 0.0
+    
+    # Use bigrams for demonstration
+    n_grams = list(ngrams(tokens, n))
+    freq_dist = nltk.FreqDist(n_grams)
+    
+    # Calculate entropy
+    N = len(n_grams)
+    entropy = -sum(freq_dist[ng] * math.log2(freq_dist[ng]/N) for ng in freq_dist) # Formula adjusted for clarity
+    perplexity = 2 ** entropy if N > 0 else 0.0
+    return perplexity
+
+def calculate_burstiness(text):
+    """Calculates the burstiness of text based on word frequency variation."""
+    tokens = nltk.word_tokenize(text)
+    word_positions = {}
+    for i, word in enumerate(tokens):
+        if word not in word_positions:
+            word_positions[word] = []
+        word_positions[word].append(i)
+    
+    burstiness_scores = []
+    for word, positions in word_positions.items():
+        if len(positions) > 1:
+            gaps = np.diff(positions)
+            # Burstiness is often measured by the coefficient of variation (std/mean) of gaps
+            if np.mean(gaps) > 0:
+                burstiness = np.std(gaps) / np.mean(gaps)
+                burstiness_scores.append(burstiness)
+    
+    return np.mean(burstiness_scores) if burstiness_scores else 0.0
+
+# Example Usage:
+sample_text = "AI models can generate human-like text with ease. The quick brown fox jumps over the lazy dog."
+print(f"Perplexity: {calculate_perplexity(sample_text)}")
+print(f"Burstiness: {calculate_burstiness(sample_text)}")
+
+python
+# Installation required: pip install transformers torch
+import torch
+from transformers import pipeline
+
+def detect_ai_text_model(text):
+    """Uses a pre-trained transformer model to detect AI text."""
+    # This model is a fine-tuned RoBERTa base model by OpenAI
+    detector = pipeline('text-classification', model='openai-community/roberta-base-openai-detector')
+    result = detector(text)
+    # The 'FAKE' label indicates AI-generated content for this specific model
+    is_ai = result[0]['label'] == 'FAKE' and result[0]['score'] > 0.5 
+    score = result[0]['score'] if is_ai else 1 - result[0]['score']
+
+    return is_ai, score
+
+# Example Usage:
+ai_text = "This is a test paragraph generated by an AI model."
+is_ai, score = detect_ai_text_model(ai_text)
+print(f"Is AI generated: {is_ai}, Confidence Score: {score}")
+
+This example shows how to use Python to interact with the OpenAI API for creative text generation. 
+python
+
+import os
+from openai import OpenAI
+
+# Set your OpenAI API key as an environment variable for security
+# Ensure you have 'pip install openai'
+# os.environ["OPENAI_API_KEY"] = "YOUR_API_KEY" 
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+def generate_story(prompt):
+    """Generates a short story based on a prompt using the OpenAI API."""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",  # Or other models like gpt-4
+            messages=[
+                {"role": "system", "content": "You are a creative storyteller."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=200,      # Controls the length of the response
+            temperature=0.8,     # Controls the creativity (higher is more creative)
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+# Example usage
+prompt = "Once upon a time, in a small village nestled between the mountains, a young girl discovered a magical key."
+story = generate_story(prompt)
+print(story)
+
+
+  def calculate_factorial(n):
+    """
+    This function calculates the factorial of a given number using recursion.
+    If the number is 0, it returns 1.
+    """
+    if n == 0:
+        return 1
+    else:
+        return n * calculate_factorial(n - 1)
+
+# Example usage
+number = 5
+print(f"The factorial of {number} is: {calculate_factorial(number)}")
+
+  
