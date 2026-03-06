@@ -1,0 +1,100 @@
+python
+from presidio_analyzer import AnalyzerEngine
+from presidio_anonymizer import AnonymizerEngine
+
+# 1. Initialize engines
+analyzer = AnalyzerEngine()
+anonymizer = AnonymizerEngine()
+
+# Sample data
+text = "Contact Jane Doe at 555-123-4567 or jane.doe@example.com"
+
+# 2. Analyze text for PII
+results = analyzer.analyze(text=text, entities=["PERSON", "PHONE_NUMBER", "EMAIL_ADDRESS"], language='en')
+
+# 3. Anonymize the results
+anonymized_result = anonymizer.anonymize(text=text, analyzer_results=results)
+
+print(anonymized_result.text)
+
+python
+import tensorflow as tf
+from tensorflow_privacy.privacy.optimizers.dp_optimizer_keras import DPKerasSGDOptimizer
+
+# Define model (standard Keras)
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(784,)),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# Define DP-SGD Optimizer (Differential Privacy)
+# Noise multiplier ensures privacy, learning rate controls updates
+optimizer = DPKerasSGDOptimizer(
+    l2_norm_clip=1.0,
+    noise_multiplier=1.1,
+    num_microbatches=1,
+    learning_rate=0.01)
+
+loss = tf.keras.losses.CategoricalCrossentropy()
+model.compile(optimizer=optimizer, loss=loss)
+
+    python
+from faker import Faker
+import pandas as pd
+
+fake = Faker()
+
+# Create dummy sensitive data
+data = {
+    'name': [fake.name() for _ in range(3)],
+    'email': [fake.email() for _ in range(3)],
+    'salary': [100000, 80000, 120000]
+}
+df = pd.DataFrame(data)
+
+# Replace sensitive columns with synthetic data
+df['name'] = [fake.name() for _ in range(len(df))]
+df['email'] = [fake.safe_email() for _ in range(len(df))]
+print(df)
+    Python
+
+import datetime
+
+# User provides consent for a specific purpose
+user_consent = True
+consent_purpose = "Marketing"
+data_collection_purpose = "Marketing"
+
+def process_user_data(user_id, data, purpose, consent):
+    if not consent or purpose != data_collection_purpose:
+        print("Error: Purpose mismatch or no consent.")
+        return None
+    
+    # Process only for authorized purpose
+    print(f"Processing data for {purpose}...")
+    return {"user_id": user_id, "data": data, "timestamp": datetime.datetime.now()}
+
+# Usage
+user_data = {"name": "Alice", "email": "alice@example.com"}
+processed = process_user_data("123", user_data, "Marketing", user_consent)
+
+    python
+# Raw input data
+raw_data = {
+    "username": "user1",
+    "password_hash": "...",
+    "email": "user@example.com",
+    "location": "GPS_COORDINATES", # Unnecessary
+    "age": 25 # Necessary for age verification
+}
+
+# Minimize data before storage
+def minimize_data(data):
+    # Only keep necessary fields
+    minimized = {k: v for k, v in data.items() if k in ["username", "email", "age"]}
+    return minimized
+
+minimized_data = minimize_data(raw_data)
+print(minimized_data)
+
+    
